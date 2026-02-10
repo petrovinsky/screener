@@ -197,8 +197,8 @@ else:
     print(df_results.to_string(index=False))
     print("=" * 80 + "\n")
 
-    today = datetime.today().strftime('%Y-%m-%d')
-    filename = f"screen_{today}.csv"
+    today = datetime.today().strftime('%Y-%m-%d %H:%M:%S')
+    filename = f"./CSV/screen_{today}.csv"
     df_results.to_csv(filename, index=False)
     print(f"Results saved to: {filename}")
 
