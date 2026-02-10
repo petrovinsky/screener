@@ -1,0 +1,5 @@
+numpy
+pandas
+polygon-api-client
+datetime
+timedelta

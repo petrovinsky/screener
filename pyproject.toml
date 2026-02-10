@@ -1,0 +1,10 @@
+[project]
+name = "screener1"
+version = "0.1.0"
+description = "Add your description here"
+requires-python = ">=3.12"
+dependencies = [
+    "pandas>=3.0.0",
+    "pandas-stubs~=3.0.0",
+    "polygon-api-client>=1.16.3",
+]

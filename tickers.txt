@@ -1,0 +1,4 @@
+SOXL
+NVDL
+TECL
+MU
