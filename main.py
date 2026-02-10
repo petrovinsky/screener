@@ -244,7 +244,7 @@ def analyze_ticker(ticker, api_key):
 
 
 # Usage: Replace with your Polygon API key
-# Run: export POLYGON_API_KEY="<my_api_key>"
+# Create .env file in current directory with this line: POLYGON_API_KEY=<my_api_key>
 api_key = os.getenv("POLYGON_API_KEY")
 input_str = input("Enter tickers (comma or space separated) or filename: ").strip()
 
