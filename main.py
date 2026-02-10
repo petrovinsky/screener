@@ -3,7 +3,11 @@ import numpy as np
 from polygon import RESTClient
 from datetime import datetime, timedelta
 import os
+from dotenv import load_dotenv
 import re
+
+# Load variables from your .env file
+load_dotenv()   # looks for .env file in current directory
 
 # Set display options for panda so it shows the entire contents of cells and table
 pd.set_option('display.width', None)          # None = detect terminal width
@@ -240,7 +244,8 @@ def analyze_ticker(ticker, api_key):
 
 
 # Usage: Replace with your Polygon API key
-api_key = 'uNQSycRpOS79482jdXbAIOu58RDmPU0s'
+# Run: export POLYGON_API_KEY="<my_api_key>"
+api_key = os.getenv("POLYGON_API_KEY")
 input_str = input("Enter tickers (comma or space separated) or filename: ").strip()
 
 if os.path.isfile(input_str):
