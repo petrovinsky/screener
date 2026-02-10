@@ -127,33 +127,42 @@ def get_bull_score(df):
 # Current signals summary (using pandas_ta_classic)
 # ──────────────────────────────────────────────
 def get_current_signals(df):
+    if len(df) < 30:
+        return {'Error': 'Insufficient data (<30 bars)'}
+
     close = df['close'].iloc[-1]
+    prev_close = df['close'].iloc[-2]
+
     rsi = df.ta.rsi(length=14).iloc[-1]
     macd = df.ta.macd()
     macd_line = macd['MACD_12_26_9'].iloc[-1]
     macd_signal = macd['MACDs_12_26_9'].iloc[-1]
+    macd_hist = macd['MACDh_12_26_9'].iloc[-1]
+
     bb = df.ta.bbands(length=20, std=2)
     bb_lower = bb['BBL_20_2.0'].iloc[-1]
 
-    # Simple signal logic (you can expand this)
-    if close > bb_lower and df['close'].iloc[-2] <= bb_lower:
-        signal = "BB Lower Bounce"
-    elif rsi < 30:
-        signal = "Oversold (RSI)"
+    signals = []
+    if close > bb_lower >= prev_close:
+        signals.append("BB Lower Bounce")
+    if rsi < 30:
+        signals.append("RSI Oversold")
+    if macd_line > macd_signal and macd['MACD_12_26_9'].iloc[-2] <= macd['MACDs_12_26_9'].iloc[-2]:
+        signals.append("MACD Bull Cross")
     elif macd_line > macd_signal:
-        signal = "MACD Bullish"
-    else:
-        signal = "Neutral"
+        signals.append("MACD Bullish")
+
+    signal_str = " + ".join(signals) if signals else "Neutral"
 
     return {
         'Close': round(close, 2),
         'RSI': round(rsi, 2),
         'MACD Status': 'Bullish' if macd_line > macd_signal else 'Bearish/Neutral',
+        'MACD Hist': round(macd_hist, 2),
         'BB Position': 'Near Lower' if close <= bb_lower * 1.02 else 'Mid/Upper',
         'Bull Score': get_bull_score(df),
-        'Signal': signal
+        'Signal': signal_str
     }
-
 # ──────────────────────────────────────────────
 # Main screening logic
 # ──────────────────────────────────────────────
@@ -210,8 +219,9 @@ else:
     print(df_results.to_string(index=False))
     print("="*90 + "\n")
 
-    today = datetime.today().strftime('%Y-%m-%d-%s')
-    filename = f"./CSV/screen_{today}.csv"
+    today = datetime.today().strftime('%Y-%m-%d %H:%M:%S')
+    os.makedirs("./CSV", exist_ok=True)
+    filename = f"./CSV/screened picks {today}.csv"
     df_results.to_csv(filename, index=False)
     print(f"Saved to: {filename}")
 
