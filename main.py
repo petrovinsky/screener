@@ -204,12 +204,45 @@ def get_signals(df, ticker):
         if macd is not None and 'MACD_12_26_9' in macd and 'MACDs_12_26_9' in macd:
             macd_line = macd['MACD_12_26_9']
             signal_line = macd['MACDs_12_26_9']
-            if macd_line.iloc[-1] > signal_line.iloc[-1]:
-                macd_sigs.append("MACD Bullish")
-            if len(macd_line) >= 2 and macd_line.iloc[-1] > signal_line.iloc[-1] and macd_line.iloc[-2] <= signal_line.iloc[-2]:
-                macd_sigs.append("MACD Cross Up")
-            if macd_line.iloc[-1] > 0:
-                macd_sigs.append("MACD > 0")
+
+            # Skip if not enough data
+            if len(macd_line) < 15:
+                # fallback - just current state
+                if pd.notna(macd_line.iloc[-1]) and pd.notna(signal_line.iloc[-1]):
+                    if macd_line.iloc[-1] > signal_line.iloc[-1]:
+                        macd_sigs.append("MACD Bullish")
+            else:
+                # Current state checks
+                current_macd = macd_line.iloc[-1]
+                current_signal = signal_line.iloc[-1]
+
+                if pd.notna(current_macd) and pd.notna(current_signal):
+                    if current_macd > current_signal:
+                        macd_sigs.append("MACD Bullish")
+
+                    # Look for crossover in last 14 bars (≈14 days on daily chart)
+                    lookback = min(14, len(macd_line) - 1)
+                    recent_macd = macd_line.iloc[-lookback - 1: -1]  # up to but not including today
+                    recent_signal = signal_line.iloc[-lookback - 1: -1]
+
+                    cross_found = False
+                    days_since_cross = 0
+
+                    for i in range(len(recent_macd)):
+                        if (pd.notna(recent_macd.iloc[i]) and pd.notna(recent_signal.iloc[i]) and
+                                recent_macd.iloc[i] <= recent_signal.iloc[i] and
+                                macd_line.iloc[-(lookback - i)] > signal_line.iloc[-(lookback - i)]):
+                            # found crossover at position -(lookback - i)
+                            cross_found = True
+                            # days since crossover = number of bars after the cross + 1 (today)
+                            days_since_cross = lookback - i + 1
+                            break
+
+                    if cross_found and current_macd > current_signal:
+                        if days_since_cross == 1:
+                            macd_sigs.append("MACD Cross Up (today)")
+                        else:
+                            macd_sigs.append(f"MACD Cross Up ({days_since_cross}d ago)")
 
         bb = ta.bbands(df['close'], length=20, std=2)
         near_lower_bb = (bb is not None and 'BBL_20_2.0' in bb and
