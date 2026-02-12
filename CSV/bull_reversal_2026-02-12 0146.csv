@@ -1,0 +1,5 @@
+Ticker,Name,Close,P/E,PEG,P/FCF,EV/EBITDA,RSI,RSI Recovery,Earnings,Analyst,Insider Net,Short % Δ,Inst Change (QoQ),Bull Score,Signal
+M,"Macy's, Inc.",21.73,12.8,,6.4,7.2,52.2,No,Yes (21d),Neutral,N/A,N/A,"2025-09-30 → 2025-12-31: -53,262,757 (-57.3%)",78,MACD Bullish
+NVDA,NVIDIA Corporation,190.05,46.9,,86.8,40.5,55.2,Yes (55.2 from 34.3),Yes (13d),Yes (strong),N/A,N/A,"2025-09-30 → 2025-12-31: -2,658,137,212 (-45.5%)",78,MACD Bullish + MACD Zero Cross ↑ + RSI Recovery
+T,AT&T Inc.,28.47,9.4,,16.0,8.1,81.4,Yes (81.4 from 32.1),No,Yes (strong),N/A,N/A,"2025-09-30 → 2025-12-31: -306,365,107 (-21.7%)",78,MACD Bullish + ADX Uptrend + RSI Recovery
+SU,Suncor Energy Inc.,55.94,15.6,,10.6,5.0,79.6,No,No,Yes (strong),N/A,N/A,"2025-09-30 → 2025-12-31: -111,756,030 (-47.4%)",64,MACD Bullish + ADX Uptrend

@@ -1,0 +1,6 @@
+Ticker,Close,RSI,RSI Recovery,MACD,BB Pos,Earnings,Analyst,Bull Score,Signal
+NVDL,89.08,53.8,Yes (RSI 53.8 after 33.7),Bullish,Mid/Upper,No,N/A,95,MACD Bullish + MACD Cross Up (13d ago) + RSI Recovery
+M,21.73,52.2,No,Bullish,Mid/Upper,Yes (in 21d),Neutral,68,MACD Bullish + MACD Cross Up (7d ago)
+T,28.47,81.4,Yes (RSI 81.4 after 32.1),Bullish,Mid/Upper,No,Yes (strong),65,MACD Bullish + MACD > 0 + MACD Cross Up (15d ago) + RSI Recovery
+SU,55.94,79.6,No,Bullish,Mid/Upper,No,Yes (strong),50,MACD Bullish + MACD > 0
+AMD,213.58,44.2,Yes (RSI 44.2 after 32.5),Neutral/Bear,Mid/Upper,No,Yes (strong),33,RSI Recovery

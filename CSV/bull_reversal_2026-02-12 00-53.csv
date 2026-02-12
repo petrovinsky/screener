@@ -1,0 +1,6 @@
+Ticker,Name,Close,P/E,RSI,RSI Recovery,Earnings,Analyst,Bull Score,Signal
+NVDA,NVIDIA Corporation,190.05,46.9,55.2,Yes (RSI 55.2 after 34.3),Yes (in 13d),Yes (strong),78,MACD Bullish + MACD Cross Up (13d ago) + RSI Recovery
+APLD,Applied Digital Corporation,36.6,,53.6,No,No,Yes (strong),62,Neutral
+MU,"Micron Technology, Inc.",410.34,39.1,59.6,No,No,Yes (strong),52,Neutral
+VG,"Venture Global, Inc.",9.78,11.2,59.5,No,Yes (in 18d),Yes (mod),48,MACD Bullish + MACD Cross Up (5d ago)
+AMD,"Advanced Micro Devices, Inc.",213.58,81.8,44.2,Yes (RSI 44.2 after 32.5),No,Yes (strong),32,RSI Recovery

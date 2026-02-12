@@ -1,0 +1,2 @@
+Ticker,Name,Close,P/E,RSI,RSI Recovery,Earnings,Analyst,Bull Score,Signal
+NVDA,NVIDIA Corporation,190.05,46.9,55.2,Yes (RSI 55.2 after 34.3),Yes (in 13d),Yes (strong),78,MACD Bullish + MACD Cross Up (13d ago) + RSI Recovery

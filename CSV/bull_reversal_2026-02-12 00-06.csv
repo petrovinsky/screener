@@ -1,0 +1,6 @@
+Ticker,Close,RSI,RSI Recovery,MACD,BB Pos,Earnings,Analyst,Bull Score,Signal
+NVDA,190.05,55.2,Yes (RSI 55.2 after 34.3),Bullish,Mid/Upper,Yes (in 13d),Yes (strong),95,MACD Bullish + MACD > 0 + RSI Recovery
+AAPL,275.5,63.5,Yes (RSI 63.5 after 17.9),Bullish,Mid/Upper,No,Yes (strong),83,MACD Bullish + MACD > 0 + RSI Recovery
+TSLA,428.27,49.3,Yes (RSI 49.3 after 34.3),Bullish,Mid/Upper,No,Yes (mod),77,MACD Bullish + MACD Cross Up + RSI Recovery + Bull Candle (Hammer/Engulf)
+M,21.73,52.2,No,Bullish,Mid/Upper,Yes (in 21d),Neutral,68,MACD Bullish
+CSCO,85.54,69.8,No,Bullish,Mid/Upper,No,Yes (strong),68,MACD Bullish + MACD > 0
