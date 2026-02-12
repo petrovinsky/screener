@@ -25,24 +25,17 @@ console = Console()
 
 GREEN = "#00ff00"
 YELLOW = "#ffff00"
-RED = "#ff5555"
+RED = "#ff6666"  # brighter red for better readability
 
 def color_text(text, color):
     return f"[{color}]{text}[/{color}]"
 
 # Approximate industry average trailing P/E (early 2026 estimates)
 INDUSTRY_PE_AVG = {
-    'Technology': 32,
-    'Consumer Cyclical': 24,
-    'Communication Services': 22,
-    'Healthcare': 28,
-    'Financial Services': 16,
-    'Industrials': 22,
-    'Consumer Defensive': 20,
-    'Energy': 14,
-    'Basic Materials': 18,
-    'Real Estate': 30,
-    'Utilities': 19,
+    'Technology': 32, 'Consumer Cyclical': 24, 'Communication Services': 22,
+    'Healthcare': 28, 'Financial Services': 16, 'Industrials': 22,
+    'Consumer Defensive': 20, 'Energy': 14, 'Basic Materials': 18,
+    'Real Estate': 30, 'Utilities': 19,
 }
 
 # ──────────────────────────────────────────────
@@ -62,7 +55,7 @@ def fetch_stock_data(ticker, period="2y", interval="1d"):
         return pd.DataFrame()
 
 # ──────────────────────────────────────────────
-# Get company info (name, sector, pe, etc.)
+# Company info + valuation metrics (P/FCF, EV/EBITDA)
 # ──────────────────────────────────────────────
 def get_company_info(ticker):
     try:
@@ -72,11 +65,23 @@ def get_company_info(ticker):
         pe = info.get('trailingPE')
         if pe is not None:
             pe = round(float(pe), 1)
+
+        # P/FCF
+        p_fcf = None
+        if info.get('freeCashflow') and info.get('marketCap'):
+            fcf = info['freeCashflow']
+            if fcf > 0:
+                p_fcf = round(info['marketCap'] / fcf, 1)
+
+        # EV/EBITDA
+        ev_ebitda = info.get('enterpriseToEbitda')
+        if ev_ebitda is not None:
+            ev_ebitda = round(float(ev_ebitda), 1)
+
         sector = info.get('sector', 'N/A')
-        industry = info.get('industry', 'N/A')
-        return name, pe, sector, industry
+        return name, pe, p_fcf, ev_ebitda, sector
     except:
-        return 'N/A', None, 'N/A', 'N/A'
+        return 'N/A', None, None, None, 'N/A'
 
 # ──────────────────────────────────────────────
 # Earnings Date
@@ -84,39 +89,64 @@ def get_company_info(ticker):
 def get_next_earnings_days(ticker):
     try:
         stock = yf.Ticker(ticker)
+
+        # Preferred: earnings_dates
         dates = stock.earnings_dates
         if dates is not None and not dates.empty:
-            dates.index = dates.index.tz_localize(None)
+            # Ensure index is timezone-naive datetime
+            if dates.index.tz is not None:
+                dates.index = dates.index.tz_localize(None)
             now = pd.Timestamp.now().normalize()
             upcoming = dates[dates.index > now]
             if not upcoming.empty:
                 next_date = upcoming.index.min()
-                days = (next_date - pd.Timestamp.now()).days
+                days = (next_date - now).days
                 if 0 < days <= 30:
                     return days
+
+        # Fallback: calendar
         cal = stock.calendar
-        if cal is None:
+        if cal is None or 'Earnings Date' not in cal:
             return None
-        ed = cal.get('Earnings Date')
-        if ed is None:
-            return None
-        if isinstance(ed, list) and ed: ed = ed[0]
-        elif isinstance(ed, dict): ed = ed.get('raw') or ed.get('fmt')
+
+        ed = cal['Earnings Date']
+
+        # Handle various weird formats from yfinance
+        if isinstance(ed, (list, tuple)) and ed:
+            ed = ed[0]
+        elif isinstance(ed, dict):
+            ed = ed.get('raw') or ed.get('fmt') or ed.get('Earnings Date')
+
+        # Try to convert to pd.Timestamp safely
         if isinstance(ed, str):
             try:
-                ed = pd.to_datetime(ed, utc=True).tz_localize(None)
+                ed = pd.to_datetime(ed, utc=True, errors='coerce')
             except:
+                console.print(f"[yellow]{ticker} earnings date parse failed (str): {ed}[/yellow]")
                 return None
-        elif isinstance(ed, pd.Timestamp):
-            ed = ed.tz_localize(None) if ed.tz else ed
-        if not isinstance(ed, pd.Timestamp):
+        elif hasattr(ed, 'year') and hasattr(ed, 'month') and hasattr(ed, 'day'):  # duck-type date/datetime
+            try:
+                ed = pd.Timestamp(ed)
+            except:
+                ed = None
+        else:
+            ed = None
+
+        if ed is None or pd.isna(ed):
             return None
-        days = (ed - pd.Timestamp.now().normalize()).days
+
+        # Normalize to date-only, timezone-free
+        ed = pd.Timestamp(ed).normalize().tz_localize(None)
+        now = pd.Timestamp.now().normalize().tz_localize(None)
+
+        days = (ed - now).days
         if 0 < days <= 30:
             return days
+
         return None
+
     except Exception as e:
-        console.print(f"[yellow]Earnings fetch failed for {ticker}: {str(e)[:120]}[/yellow]")
+        console.print(f"[yellow]Earnings fetch failed for {ticker}: {type(e).__name__}: {str(e)[:120]}[/yellow]")
         return None
 
 # ──────────────────────────────────────────────
@@ -153,33 +183,26 @@ def has_bullish_candle(df):
             curr['open'] <= prev['close'] and curr['close'] > prev['open'])
 
 # ──────────────────────────────────────────────
-# Detect bullish RSI divergence
+# Bullish RSI Divergence
 # ──────────────────────────────────────────────
 def has_bullish_rsi_divergence(df, rsi_series, lookback=60):
     if rsi_series is None or len(df) < 20 or len(rsi_series) < lookback:
         return False
-
     prices = df['close'].tail(lookback)
     rsi_vals = rsi_series.tail(lookback)
-
     is_low = (prices.shift(1) > prices) & (prices.shift(-1) > prices)
     low_prices = prices[is_low]
     low_rsi = rsi_vals[is_low]
-
     if len(low_prices) < 2:
         return False
-
     last_low_price = low_prices.iloc[-1]
     last_low_rsi   = low_rsi.iloc[-1]
     prev_low_price = low_prices.iloc[-2]
     prev_low_rsi   = low_rsi.iloc[-2]
-
-    if last_low_price < prev_low_price and last_low_rsi > prev_low_rsi + 2:
-        return True
-    return False
+    return last_low_price < prev_low_price and last_low_rsi > prev_low_rsi + 2
 
 # ──────────────────────────────────────────────
-# Bull Score – rebalanced weights
+# Bull Score – rebalanced weights (refactored)
 # ──────────────────────────────────────────────
 def get_bull_score(df):
     if len(df) < 60 or ta is None:
@@ -188,82 +211,66 @@ def get_bull_score(df):
         score = 0
         close = df['close'].iloc[-1]
 
-        # ─── Trend alignment (core filters) ─────────────────────────────
+        # ─── Trend alignment – core (highest weight) ────────────────────────
         if len(df) >= 200:
             sma200 = ta.sma(df['close'], length=200).iloc[-1]
             if pd.notna(sma200):
-                if close > sma200:
-                    score += 18
-                else:
-                    score -= 12  # penalty for being well below long-term trend
+                score += 22 if close > sma200 else -15  # stronger trend filter + penalty
 
         ema50 = ta.ema(df['close'], length=50).iloc[-1]
         if pd.notna(ema50) and close > ema50:
-            score += 20
+            score += 24  # highest positive weight – intermediate trend
 
         ema20 = ta.ema(df['close'], length=20).iloc[-1]
         if pd.notna(ema20) and close > ema20:
-            score += 14
+            score += 16
 
-        # ─── Momentum / Oversold ────────────────────────────────────────
+        # ─── Momentum / Oversold (tiered, reduced dominance) ────────────────
         rsi = ta.rsi(df['close'], length=14)
         rsi_now = rsi.iloc[-1] if rsi is not None and pd.notna(rsi.iloc[-1]) else 50.0
 
         if rsi_now < 30:
-            score += 18
-        elif rsi_now < 35:
-            score += 10
-
-        # RSI recovery from oversold
-        if rsi is not None and len(rsi) >= 30:
-            recent_rsi = rsi.tail(30)
-            min_rsi = recent_rsi.min()
-            if pd.notna(min_rsi) and min_rsi <= 34 and rsi_now >= min_rsi + 8 and rsi_now > 36:
-                score += 14
-
-        # ─── Reversal / Confirmation signals ────────────────────────────
-        # Bullish RSI divergence
-        if has_bullish_rsi_divergence(df, rsi):
             score += 16
+        elif rsi_now < 35:
+            score += 9
 
-        # MACD
+        # RSI recovery
+        if rsi is not None and len(rsi) >= 30:
+            min_rsi = rsi.tail(30).min()
+            if pd.notna(min_rsi) and min_rsi <= 34 and rsi_now >= min_rsi + 8 and rsi_now > 36:
+                score += 13
+
+        # ─── Reversal / Confirmation signals (higher relative weight) ───────
+        if has_bullish_rsi_divergence(df, rsi):
+            score += 18
+
         macd = ta.macd(df['close'])
         if macd is not None and 'MACD_12_26_9' in macd and 'MACDs_12_26_9' in macd:
-            macd_line = macd['MACD_12_26_9']
-            signal_line = macd['MACDs_12_26_9']
-            if pd.notna(macd_line.iloc[-1]) and pd.notna(signal_line.iloc[-1]):
-                if macd_line.iloc[-1] > signal_line.iloc[-1]:
-                    score += 12
-                # Bonus for recent cross (stronger signal)
-                if len(macd_line) >= 10:
-                    recent_cross = False
-                    for i in range(1, 11):
-                        if (macd_line.iloc[-i-1] <= signal_line.iloc[-i-1] and
-                            macd_line.iloc[-i]   >  signal_line.iloc[-i]):
-                            recent_cross = True
-                            break
-                    if recent_cross:
-                        score += 14
+            if macd['MACD_12_26_9'].iloc[-1] > macd['MACDs_12_26_9'].iloc[-1]:
+                score += 13
+            # recent cross bonus
+            if len(macd) >= 10 and any(
+                macd['MACD_12_26_9'].iloc[-i] > macd['MACDs_12_26_9'].iloc[-i] and
+                macd['MACD_12_26_9'].iloc[-i-1] <= macd['MACDs_12_26_9'].iloc[-i-1]
+                for i in range(1, 11)
+            ):
+                score += 15
 
-        # Bollinger Band near lower + bounce
         bb = ta.bbands(df['close'], length=20, std=2)
         if bb is not None and 'BBL_20_2.0' in bb:
-            bbl = bb['BBL_20_2.0'].iloc[-1]
-            if pd.notna(bbl) and close <= bbl * 1.015:
-                score += 16
+            if close <= bb['BBL_20_2.0'].iloc[-1] * 1.015:
+                score += 17
                 if len(df) >= 2 and df['close'].iloc[-2] > bb['BBL_20_2.0'].iloc[-2]:
-                    score += 8   # extra for actual bounce
+                    score += 10
 
-        # Volume confirmation
         if len(df) >= 5:
             recent = df.tail(5)
-            up_days = recent[recent['close'] > recent['open']]
-            if not up_days.empty and up_days['volume'].mean() > recent['volume'].mean() * 1.20:
-                score += 10
+            up_vol_mean = recent[recent['close'] > recent['open']]['volume'].mean()
+            if pd.notna(up_vol_mean) and up_vol_mean > recent['volume'].mean() * 1.20:
+                score += 12
 
-        # Bullish candle
         if has_bullish_candle(df):
-            score += 12
+            score += 14
 
         return min(max(int(score), 0), 100)
     except Exception as e:
@@ -314,6 +321,13 @@ def get_signals(df, ticker):
                         else:
                             macd_sigs.append(f"MACD Cross Up ({days_since_cross}d ago)")
 
+        # ADX trend strength rising + +DI > -DI
+        adx = ta.adx(df['high'], df['low'], df['close'], length=14)
+        if adx is not None and len(adx) >= 3:
+            if (adx['ADX_14'].iloc[-1] > adx['ADX_14'].iloc[-2] > 20 and
+                adx['DMP_14'].iloc[-1] > adx['DMN_14'].iloc[-1]):
+                macd_sigs.append("ADX Uptrend")
+
         bb = ta.bbands(df['close'], length=20, std=2)
         near_lower_bb = bb is not None and 'BBL_20_2.0' in bb and close <= bb['BBL_20_2.0'].iloc[-1] * 1.02
         bb_bounce = near_lower_bb and df['close'].iloc[-2] > bb['BBL_20_2.0'].iloc[-2]
@@ -326,16 +340,14 @@ def get_signals(df, ticker):
                 rsi_str = f"Yes (RSI {rsi:.1f} after {min_rsi:.1f})"
 
         signals = macd_sigs[:]
-
-        if has_bullish_rsi_divergence(df, rsi_series):
-            signals.append("Bullish RSI Div")
-
         if bb_bounce:
             signals.append("BB Lower Bounce")
         if rsi < 35:
             signals.append("RSI Oversold")
         if "Yes" in rsi_str:
             signals.append("RSI Recovery")
+        if has_bullish_rsi_divergence(df, rsi_series):
+            signals.append("Bullish RSI Div")
         if has_bullish_candle(df):
             signals.append("Bull Candle (Hammer/Engulf)")
 
@@ -346,13 +358,15 @@ def get_signals(df, ticker):
         analyst = get_analyst_rating(ticker)
         bull_score_val = get_bull_score(df)
 
-        name, pe, sector, _ = get_company_info(ticker)
+        name, pe, p_fcf, ev_ebitda, sector = get_company_info(ticker)
 
         return {
             'Ticker': ticker,
             'Name': name,
             'Close': round(close, 2),
             'P/E': pe,
+            'P/FCF': p_fcf,
+            'EV/EBITDA': ev_ebitda,
             'RSI': round(rsi, 1) if pd.notna(rsi) else "N/A",
             'RSI Recovery': rsi_str,
             'Earnings': earnings_str,
@@ -413,6 +427,8 @@ if __name__ == "__main__":
         table.add_column("Name", style="white", overflow="fold")
         table.add_column("Close", justify="right")
         table.add_column("P/E", justify="right")
+        table.add_column("P/FCF", justify="right")
+        table.add_column("EV/EBITDA", justify="right")
         table.add_column("RSI", justify="right")
         table.add_column("RSI Recovery", style="green")
         table.add_column("Earnings", justify="center")
@@ -422,26 +438,31 @@ if __name__ == "__main__":
 
         for _, row in df_res.iterrows():
             if 'Error' in row:
-                table.add_row(row['Ticker'], "-", "-", "-", "-", "-", "-", "-",
-                              f"[red]{row.get('Error','')}[/red]", "-")
+                table.add_row(row['Ticker'], "-", "-", "-", "-", "-", "-", "-", "-",
+                              f"[red]{row.get('Error', '')}[/red]", "-")
                 continue
 
             earn_color = "green" if "Yes" in str(row['Earnings']) else "white"
-            analyst_color = "green" if any(s in str(row['Analyst']).lower() for s in ['yes','strong','buy']) else \
+            analyst_color = "green" if any(s in str(row['Analyst']).lower() for s in ['yes', 'strong', 'buy']) else \
                             "red" if "no" in str(row['Analyst']).lower() else "yellow"
             signal_color = "green" if any(
-                x in str(row['Signal']).lower() for x in ["bounce","cross","recovery","bull","hammer","div"]) else "yellow"
+                x in str(row['Signal']).lower() for x in ["bounce", "cross", "recovery", "bull", "hammer", "div", "adx"]) else "yellow"
+
+            # Valuation colors
+            def val_color(v, low, high):
+                if pd.isna(v): return "white", "-"
+                v = float(v)
+                c = "green" if v < low else "red" if v > high else "yellow"
+                return c, f"{v:.1f}"
 
             pe_val = row.get('P/E')
-            pe_str = f"{pe_val:.1f}" if pd.notna(pe_val) else "-"
-            pe_color = "white"
-            if pd.notna(pe_val):
-                sector = get_company_info(row['Ticker'])[2]
-                avg_pe = INDUSTRY_PE_AVG.get(sector, 25)
-                if pe_val < avg_pe:
-                    pe_color = "green"
-                elif pe_val > avg_pe:
-                    pe_color = "red"
+            pe_c, pe_s = val_color(pe_val, 15, 35)
+
+            p_fcf_val = row.get('P/FCF')
+            p_fcf_c, p_fcf_s = val_color(p_fcf_val, 15, 30)
+
+            ev_ebitda_val = row.get('EV/EBITDA')
+            ev_c, ev_s = val_color(ev_ebitda_val, 10, 18)
 
             score = row['Bull Score']
             score_str = str(int(score)) if pd.notna(score) else "-"
@@ -451,7 +472,9 @@ if __name__ == "__main__":
                 row['Ticker'],
                 str(row.get('Name', 'N/A')),
                 f"{row['Close']:.2f}" if pd.notna(row['Close']) else "-",
-                color_text(pe_str, pe_color),
+                color_text(pe_s, pe_c),
+                color_text(p_fcf_s, p_fcf_c),
+                color_text(ev_s, ev_c),
                 f"{row['RSI']:.1f}" if pd.notna(row['RSI']) else "-",
                 str(row['RSI Recovery']),
                 color_text(str(row['Earnings']), earn_color),
