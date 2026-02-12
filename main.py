@@ -413,7 +413,7 @@ if __name__ == "__main__":
             continue
         sig = get_signals(df, ticker)
         results.append(sig)
-        time.sleep(0.9)
+        # time.sleep(0.1) # doesnt seem to be necessary with yfinance? this was a throttle for polygon API data source
 
     if not results:
         console.print("[red]No valid data retrieved.[/red]")
