@@ -25,7 +25,7 @@ console = Console()
 
 GREEN = "#00ff00"
 YELLOW = "#ffff00"
-RED = "#ff6666"  # brighter red for better readability
+RED = "#e66247"  # brighter red for better readability
 
 def color_text(text, color):
     return f"[{color}]{text}[/{color}]"
