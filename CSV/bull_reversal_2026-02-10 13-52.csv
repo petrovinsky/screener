@@ -1,7 +1,0 @@
-Ticker,Close,RSI,RSI Recovery,MACD,BB Pos,Earnings,Analyst,Bull Score,Signal
-NVDA,189.23,54.5,Yes (RSI 54.5 after 34.3),Bullish,Mid/Upper,Yes (in 15d),Yes (strong),83,MACD Bull Cross + RSI Recovery
-SU,54.13,71.8,No,Bullish,Mid/Upper,No,Yes (strong),50,MACD Bull Cross
-CSCO,86.89,75.8,No,Bullish,Mid/Upper,Yes (in 1d),Yes (strong),50,MACD Bull Cross
-MU,375.37,51.6,No,Neutral/Bear,Mid/Upper,No,Yes (strong),38,Neutral
-MSFT,416.37,37.6,Yes (RSI 37.6 after 24.6),Neutral/Bear,Mid/Upper,No,Yes (strong),15,RSI Recovery
-ORCL,162.09,43.2,Yes (RSI 43.2 after 20.3),Neutral/Bear,Mid/Upper,Yes (in 27d),Yes (strong),15,RSI Recovery

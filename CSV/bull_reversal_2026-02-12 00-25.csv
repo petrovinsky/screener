@@ -1,6 +1,0 @@
-Ticker,Close,RSI,RSI Recovery,MACD,BB Pos,Earnings,Analyst,Bull Score,Signal
-MRK,119.31,66.5,No,Bullish,Mid/Upper,No,Yes (strong),82,MACD Bullish + MACD > 0 + MACD Cross Up (8d ago) + Bull Candle (Hammer/Engulf)
-MU,410.34,59.6,No,Bullish,Mid/Upper,No,Yes (strong),53,MACD > 0
-VG,9.78,59.5,No,Bullish,Mid/Upper,Yes (in 18d),Yes (mod),50,MACD Bullish + MACD > 0 + MACD Cross Up (5d ago)
-TSMU,64.33,71.0,No,Bullish,Mid/Upper,No,N/A,50,MACD Bullish + MACD > 0 + MACD Cross Up (12d ago)
-AMD,213.58,44.2,Yes (RSI 44.2 after 32.5),Neutral/Bear,Mid/Upper,No,Yes (strong),33,RSI Recovery

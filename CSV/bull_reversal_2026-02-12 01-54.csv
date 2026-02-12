@@ -1,6 +1,0 @@
-Ticker,Name,Close,P/E,P/FCF,EV/EBITDA,RSI,RSI Recovery,Earnings,Analyst,Bull Score,Signal
-NVDA,NVIDIA Corporation,190.05,46.9,86.8,40.5,55.2,Yes (RSI 55.2 after 34.3),Yes (in 13d),Yes (strong),90,MACD Bullish + MACD Cross Up (13d ago) + RSI Recovery
-SU,Suncor Energy Inc.,55.94,15.6,10.6,5.0,79.6,No,No,Yes (strong),75,MACD Bullish + ADX Uptrend
-APLD,Applied Digital Corporation,36.6,,,539.5,53.6,No,No,Yes (strong),74,Neutral
-MU,"Micron Technology, Inc.",410.34,39.1,1039.6,20.9,59.6,No,No,Yes (strong),62,Neutral
-VG,"Venture Global, Inc.",9.78,11.2,,12.6,59.5,No,Yes (in 18d),Yes (mod),53,MACD Bullish + MACD Cross Up (5d ago) + ADX Uptrend
