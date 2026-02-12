@@ -153,41 +153,118 @@ def has_bullish_candle(df):
             curr['open'] <= prev['close'] and curr['close'] > prev['open'])
 
 # ──────────────────────────────────────────────
-# Bull Score
+# Detect bullish RSI divergence
+# ──────────────────────────────────────────────
+def has_bullish_rsi_divergence(df, rsi_series, lookback=60):
+    if rsi_series is None or len(df) < 20 or len(rsi_series) < lookback:
+        return False
+
+    prices = df['close'].tail(lookback)
+    rsi_vals = rsi_series.tail(lookback)
+
+    is_low = (prices.shift(1) > prices) & (prices.shift(-1) > prices)
+    low_prices = prices[is_low]
+    low_rsi = rsi_vals[is_low]
+
+    if len(low_prices) < 2:
+        return False
+
+    last_low_price = low_prices.iloc[-1]
+    last_low_rsi   = low_rsi.iloc[-1]
+    prev_low_price = low_prices.iloc[-2]
+    prev_low_rsi   = low_rsi.iloc[-2]
+
+    if last_low_price < prev_low_price and last_low_rsi > prev_low_rsi + 2:
+        return True
+    return False
+
+# ──────────────────────────────────────────────
+# Bull Score – rebalanced weights
 # ──────────────────────────────────────────────
 def get_bull_score(df):
-    if len(df) < 60 or ta is None: return 0
+    if len(df) < 60 or ta is None:
+        return 0
     try:
         score = 0
         close = df['close'].iloc[-1]
-        ema20 = ta.ema(df['close'], 20).iloc[-1]
-        ema50 = ta.ema(df['close'], 50).iloc[-1]
-        if pd.notna(ema20) and close > ema20: score += 15
-        if pd.notna(ema50) and close > ema50: score += 20
+
+        # ─── Trend alignment (core filters) ─────────────────────────────
         if len(df) >= 200:
-            sma200 = ta.sma(df['close'], 200).iloc[-1]
-            if pd.notna(sma200) and close > sma200: score += 18
-        rsi = ta.rsi(df['close'], 14)
+            sma200 = ta.sma(df['close'], length=200).iloc[-1]
+            if pd.notna(sma200):
+                if close > sma200:
+                    score += 18
+                else:
+                    score -= 12  # penalty for being well below long-term trend
+
+        ema50 = ta.ema(df['close'], length=50).iloc[-1]
+        if pd.notna(ema50) and close > ema50:
+            score += 20
+
+        ema20 = ta.ema(df['close'], length=20).iloc[-1]
+        if pd.notna(ema20) and close > ema20:
+            score += 14
+
+        # ─── Momentum / Oversold ────────────────────────────────────────
+        rsi = ta.rsi(df['close'], length=14)
         rsi_now = rsi.iloc[-1] if rsi is not None and pd.notna(rsi.iloc[-1]) else 50.0
-        if rsi_now < 35: score += 25
-        elif rsi_now > 70: score -= 18
+
+        if rsi_now < 30:
+            score += 18
+        elif rsi_now < 35:
+            score += 10
+
+        # RSI recovery from oversold
         if rsi is not None and len(rsi) >= 30:
-            min_rsi = rsi.tail(30).min()
-            if pd.notna(min_rsi) and min_rsi <= 35 and rsi_now >= min_rsi + 9 and rsi_now > 36:
-                score += 15
+            recent_rsi = rsi.tail(30)
+            min_rsi = recent_rsi.min()
+            if pd.notna(min_rsi) and min_rsi <= 34 and rsi_now >= min_rsi + 8 and rsi_now > 36:
+                score += 14
+
+        # ─── Reversal / Confirmation signals ────────────────────────────
+        # Bullish RSI divergence
+        if has_bullish_rsi_divergence(df, rsi):
+            score += 16
+
+        # MACD
         macd = ta.macd(df['close'])
         if macd is not None and 'MACD_12_26_9' in macd and 'MACDs_12_26_9' in macd:
-            if macd['MACD_12_26_9'].iloc[-1] > macd['MACDs_12_26_9'].iloc[-1]:
-                score += 15
-        bb = ta.bbands(df['close'], 20, 2)
+            macd_line = macd['MACD_12_26_9']
+            signal_line = macd['MACDs_12_26_9']
+            if pd.notna(macd_line.iloc[-1]) and pd.notna(signal_line.iloc[-1]):
+                if macd_line.iloc[-1] > signal_line.iloc[-1]:
+                    score += 12
+                # Bonus for recent cross (stronger signal)
+                if len(macd_line) >= 10:
+                    recent_cross = False
+                    for i in range(1, 11):
+                        if (macd_line.iloc[-i-1] <= signal_line.iloc[-i-1] and
+                            macd_line.iloc[-i]   >  signal_line.iloc[-i]):
+                            recent_cross = True
+                            break
+                    if recent_cross:
+                        score += 14
+
+        # Bollinger Band near lower + bounce
+        bb = ta.bbands(df['close'], length=20, std=2)
         if bb is not None and 'BBL_20_2.0' in bb:
-            if close <= bb['BBL_20_2.0'].iloc[-1] * 1.015: score += 20
+            bbl = bb['BBL_20_2.0'].iloc[-1]
+            if pd.notna(bbl) and close <= bbl * 1.015:
+                score += 16
+                if len(df) >= 2 and df['close'].iloc[-2] > bb['BBL_20_2.0'].iloc[-2]:
+                    score += 8   # extra for actual bounce
+
+        # Volume confirmation
         if len(df) >= 5:
-            r = df.tail(5)
-            up_vol_mean = r[r['close'] > r['open']]['volume'].mean()
-            if pd.notna(up_vol_mean) and up_vol_mean > r['volume'].mean() * 1.15:
-                score += 12
-        if has_bullish_candle(df): score += 14
+            recent = df.tail(5)
+            up_days = recent[recent['close'] > recent['open']]
+            if not up_days.empty and up_days['volume'].mean() > recent['volume'].mean() * 1.20:
+                score += 10
+
+        # Bullish candle
+        if has_bullish_candle(df):
+            score += 12
+
         return min(max(int(score), 0), 100)
     except Exception as e:
         console.print(f"[yellow]Score calc issue: {str(e)[:60]}[/yellow]")
@@ -237,7 +314,7 @@ def get_signals(df, ticker):
                         else:
                             macd_sigs.append(f"MACD Cross Up ({days_since_cross}d ago)")
 
-        bb = ta.bbands(df['close'], 20, 2)
+        bb = ta.bbands(df['close'], length=20, std=2)
         near_lower_bb = bb is not None and 'BBL_20_2.0' in bb and close <= bb['BBL_20_2.0'].iloc[-1] * 1.02
         bb_bounce = near_lower_bb and df['close'].iloc[-2] > bb['BBL_20_2.0'].iloc[-2]
 
@@ -249,10 +326,18 @@ def get_signals(df, ticker):
                 rsi_str = f"Yes (RSI {rsi:.1f} after {min_rsi:.1f})"
 
         signals = macd_sigs[:]
-        if bb_bounce: signals.append("BB Lower Bounce")
-        if rsi < 35: signals.append("RSI Oversold")
-        if "Yes" in rsi_str: signals.append("RSI Recovery")
-        if has_bullish_candle(df): signals.append("Bull Candle (Hammer/Engulf)")
+
+        if has_bullish_rsi_divergence(df, rsi_series):
+            signals.append("Bullish RSI Div")
+
+        if bb_bounce:
+            signals.append("BB Lower Bounce")
+        if rsi < 35:
+            signals.append("RSI Oversold")
+        if "Yes" in rsi_str:
+            signals.append("RSI Recovery")
+        if has_bullish_candle(df):
+            signals.append("Bull Candle (Hammer/Engulf)")
 
         signal_str = " + ".join(signals) if signals else "Neutral"
 
@@ -344,9 +429,9 @@ if __name__ == "__main__":
             earn_color = "green" if "Yes" in str(row['Earnings']) else "white"
             analyst_color = "green" if any(s in str(row['Analyst']).lower() for s in ['yes','strong','buy']) else \
                             "red" if "no" in str(row['Analyst']).lower() else "yellow"
-            signal_color = "green" if any(x in str(row['Signal']).lower() for x in ["bounce","cross","recovery","bull","hammer"]) else "yellow"
+            signal_color = "green" if any(
+                x in str(row['Signal']).lower() for x in ["bounce","cross","recovery","bull","hammer","div"]) else "yellow"
 
-            # P/E coloring
             pe_val = row.get('P/E')
             pe_str = f"{pe_val:.1f}" if pd.notna(pe_val) else "-"
             pe_color = "white"
